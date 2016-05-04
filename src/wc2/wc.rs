@@ -1,6 +1,14 @@
 #![crate_name = "uu_wc"]
 
 /*
+ * This is a re-write of https://github.com/uutils/coreutils/tree/master/src/wc
+ *  using https://github.com/kbknapp/clap-rs as an example of common usage. 
+ * Most of the structure of the program is the same for the sake of 
+ *  simplicity and readability.
+ */
+
+//ORIGINAL HEADER:
+/*
  * This file is part of the uutils coreutils package.
  *
  * (c) Boden Garman <bpgarman@gmail.com>
@@ -9,21 +17,19 @@
  * file that was distributed with this source code.
  */
 
-extern crate getopts;
 extern crate libc;
 extern crate clap;
 
 #[macro_use]
 extern crate uucore;
 
-use getopts::{Matches, Options};
 use std::ascii::AsciiExt;
 use std::fs::File;
 use std::io::{stdin, BufRead, BufReader, Read, Write};
 use std::path::Path;
 use std::result::Result as StdResult;
 use std::str::from_utf8;
-use clap::{App, Arg};
+use clap::{App, Arg, ArgMatches};
 
 struct Settings {
     show_bytes: bool,
@@ -34,23 +40,22 @@ struct Settings {
 }
 
 impl Settings {
-    //fn new(matches: &Matches) -> Settings {
-    fn new(matches: App) -> Settings {
-        //let settings = Settings {
-        //    show_bytes: matches.is_present("bytes"),
-        //    show_chars: matches.is_present("chars"),
-        //    show_lines: matches.is_present("lines"),
-        //    show_words: matches.is_present("words"),
-        //    show_max_line_length: matches.is_present("L"),
-        //};
+    fn new(matches: &ArgMatches) -> Settings {
+        let settings = Settings {
+            show_bytes: matches.is_present("bytes"),
+            show_chars: matches.is_present("chars"),
+            show_lines: matches.is_present("lines"),
+            show_words: matches.is_present("words"),
+            show_max_line_length: matches.is_present("L"),
+        };
 
-        //if settings.show_bytes
-        //    || settings.show_chars
-        //    || settings.show_lines
-        //    || settings.show_words
-        //    || settings.show_max_line_length {
-        //    return settings;
-        //}
+        if settings.show_bytes
+            || settings.show_chars
+            || settings.show_lines
+            || settings.show_words
+            || settings.show_max_line_length {
+            return settings;
+        }
 
         Settings {
             show_bytes: true,
@@ -74,9 +79,11 @@ struct Result {
 static NAME: &'static str = "wc";
 static VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
-pub fn uumain(args: Vec<String>) -> i32 {
+pub fn uumain() -> i32 {
 
-    let matches = App::new("wc")
+    let matches : ArgMatches = App::new(NAME)
+                        .version(VERSION)
+                        .about("wc, courtesy of uutils, rewritten to demonstrate clap-rs usage")
                         .arg(Arg::with_name("bytes")
                             .short("c")
                             .help("print the byte counts"))
@@ -92,83 +99,22 @@ pub fn uumain(args: Vec<String>) -> i32 {
                         .arg(Arg::with_name("words")
                             .short("w")
                             .help("print the word counts"))
-                         .arg(Arg::with_name("file")
+                         .arg(Arg::with_name("files")
                              .multiple(true)
-                             .takes_value(true)
-                             //.short("F")
-                             )
-                        //.args_from_usage(
-                        //    "<seq>... 'A sequence of whole positive numbers, i.e. 20 25 30'")
+                             .takes_value(true))
                         .get_matches();
-    let foo = matches.is_present("bytes");
-    println!("Results:");
-    for i in vec!["bytes", "chars", "lines", "max-line-length", "words"] {
-        println!("\t{}: \t{}",i,matches.is_present(i));
+    //let mut files: Vec<&str> = matches.values_of("files").unwrap_or(vec!["-".as_ref()]).collect();
+    let files = matches.values_of("files");
+    let files = match files.is_some() {
+        true  => files.unwrap().collect(),
+        false => vec!["-".as_ref()],
+    };
+
+    let settings = Settings::new(&matches);
+    match wc(files, &settings){
+        Ok(()) => ( ),
+        Err(e) => return e
     }
-    let files: Vec<_> = matches.values_of("file").unwrap().collect();
-    println!("Files:");
-    for f in files {
-        println!("\t{}", f);
-    }
-
-
-    let mut opts = Options::new();
-
-    opts.optflag("c", "bytes", "print the byte counts");
-    opts.optflag("m", "chars", "print the character counts");
-    opts.optflag("l", "lines", "print the newline counts");
-    opts.optflag("L", "max-line-length", "print the length of the longest line");
-    opts.optflag("w", "words", "print the word counts");
-    opts.optflag("h", "help", "display this help and exit");
-    opts.optflag("V", "version", "output version information and exit");
-
-    //let mut matches = match opts.parse(&args[1..]) {
-    //    Ok(m) => m,
-    //    Err(f) => crash!(1, "Invalid options\n{}", f)
-    //};
-
-    //if matches.opt_present("help") {
-    //    println!("{} {}", NAME, VERSION);
-    //    println!("");
-    //    println!("Usage:");
-    //    println!("  {0} [OPTION]... [FILE]...", NAME);
-    //    println!("");
-    //    println!("{}", opts.usage("Print newline, word and byte counts for each FILE"));
-    //    println!("With no FILE, or when FILE is -, read standard input.");
-    //    return 0;
-    //}
-
-    //if matches.opt_present("version") {
-    //    println!("{} {}", NAME, VERSION);
-    //    return 0;
-    //}
-
-    //if matches.free.is_empty() {
-    //    matches.free.push("-".to_owned());
-    //}
-
-    //let settings = Settings::new(matches);
-    let settings2 = Settings {
-        show_bytes : false,
-        show_chars : false,
-        show_lines : false,
-        show_words: false,
-        show_max_line_length: false,
-        };
-        
-
-        //let settings = Settings {
-        //    show_bytes: matches.is_present("bytes"),
-        //    show_chars: matches.is_present("chars"),
-        //    show_lines: matches.is_present("lines"),
-        //    show_words: matches.is_present("words"),
-        //    show_max_line_length: matches.is_present("L"),
-        //};
-
-    //match wc(matches.free, &settings) {
-    //    Ok(()) => ( /* pass */ ),
-    //    Err(e) => return e
-    //}
 
     0
 }
@@ -185,7 +131,7 @@ fn is_word_seperator(byte: u8) -> bool {
     byte == SPACE || byte == TAB || byte == CR || byte == SYN || byte == FF
 }
 
-fn wc(files: Vec<String>, settings: &Settings) -> StdResult<(), i32> {
+fn wc(files: Vec<&str>, settings: &Settings) -> StdResult<(), i32> {
     let mut total_line_count: usize = 0;
     let mut total_word_count: usize = 0;
     let mut total_char_count: usize = 0;
@@ -246,7 +192,7 @@ fn wc(files: Vec<String>, settings: &Settings) -> StdResult<(), i32> {
         }
 
         results.push(Result {
-            title: path.clone(),
+            title: path.to_string(),
             bytes: byte_count,
             chars: char_count,
             lines: line_count,
