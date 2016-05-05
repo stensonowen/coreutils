@@ -1,13 +1,15 @@
 #![crate_name = "uu_wc"]
 
-/*
- * This is a re-write of https://github.com/uutils/coreutils/tree/master/src/wc
- *  using https://github.com/kbknapp/clap-rs as an example of common usage. 
- * Most of the structure of the program is the same for the sake of 
- *  simplicity and readability.
- */
 
-//ORIGINAL HEADER:
+//// This is a re-write of https://github.com/uutils/coreutils/tree/master/src/wc
+////     using https://github.com/kbknapp/clap-rs as an example of common usage. 
+//// Most of the structure of the program is the same for the sake of 
+////     simplicity and readability.
+//// Comments with '////' are mine
+//// License (for both projects): MIT
+
+
+////ORIGINAL HEADER:
 /*
  * This file is part of the uutils coreutils package.
  *
@@ -18,7 +20,7 @@
  */
 
 extern crate libc;
-extern crate clap;
+extern crate clap;  //// use clap instead of getopts
 
 #[macro_use]
 extern crate uucore;
@@ -42,6 +44,7 @@ struct Settings {
 impl Settings {
     fn new(matches: &ArgMatches) -> Settings {
         let settings = Settings {
+            ////clap syntax for checking whether flags are present
             show_bytes: matches.is_present("bytes"),
             show_chars: matches.is_present("chars"),
             show_lines: matches.is_present("lines"),
@@ -57,6 +60,7 @@ impl Settings {
             return settings;
         }
 
+        ////default behavior in case no flags were specified
         Settings {
             show_bytes: true,
             show_chars: false,
@@ -79,9 +83,9 @@ struct Result {
 static NAME: &'static str = "wc";
 static VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
-//pub fn uumain(args: Vec<String>) -> i32 {
 pub fn uumain() -> i32 {
 
+    ////define App and relevant possible arguments
     let matches : ArgMatches = App::new(NAME)
                         .version(VERSION)
                         .about("wc, courtesy of uutils, rewritten to demonstrate clap-rs usage")
@@ -101,16 +105,23 @@ pub fn uumain() -> i32 {
                             .short("w")
                             .help("print the word counts"))
                          .arg(Arg::with_name("files")
+                            ////can take multiple files (e.g. ./wc -l foo -m bar -c)
+                            ////allows for star-expansion (e.g. ./wc *.rs)
                              .multiple(true)
                              .takes_value(true))
                         .get_matches();
-    //let mut files: Vec<&str> = matches.values_of("files").unwrap_or(vec!["-".as_ref()]).collect();
+    ////extract vector of file names
     let files = matches.values_of("files");
+    ////default value is ["-"], indicating text will be typed/piped and closed with EOF
     let files = match files.is_some() {
         true  => files.unwrap().collect(),
         false => vec!["-".as_ref()],
     };
 
+    ////generate settings struct from App::get_matches()
+    ////not strictly necessary to use Settings struct (could be done only with clap),
+    //// but this makes it easier to compare with getopts (which the program originally used),
+    //// and Settings offers a tidy way to deal with the case of using default flags.
     let settings = Settings::new(&matches);
     match wc(files, &settings){
         Ok(()) => ( ),
@@ -193,7 +204,7 @@ fn wc(files: Vec<&str>, settings: &Settings) -> StdResult<(), i32> {
         }
 
         results.push(Result {
-            title: path.to_string(),
+            title: path.to_string(),    ////clap passes Vec<&str> instead of Vec<String>
             bytes: byte_count,
             chars: char_count,
             lines: line_count,
