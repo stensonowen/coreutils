@@ -83,7 +83,7 @@ struct Result {
 static NAME: &'static str = "wc";
 static VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
-pub fn uumain() -> i32 {
+pub fn uumain(args: Vec<String>) -> i32 {
 
     ////define App and relevant possible arguments
     let matches : ArgMatches = App::new(NAME)
@@ -109,7 +109,8 @@ pub fn uumain() -> i32 {
                             ////allows for star-expansion (e.g. ./wc *.rs)
                              .multiple(true)
                              .takes_value(true))
-                        .get_matches();
+                        //.get_matches();
+                        .get_matches_from(args);
     ////extract vector of file names
     let files = matches.values_of("files");
     ////default value is ["-"], indicating text will be typed/piped and closed with EOF
