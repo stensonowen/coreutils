@@ -79,7 +79,7 @@ struct Result {
 static NAME: &'static str = "wc";
 static VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
-pub fn uumain() -> i32 {
+pub fn uumain(args: Vec<String>) -> i32 {
 
     let matches : ArgMatches = App::new(NAME)
                         .version(VERSION)
