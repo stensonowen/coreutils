@@ -46,7 +46,7 @@ impl Settings {
             show_chars: matches.is_present("chars"),
             show_lines: matches.is_present("lines"),
             show_words: matches.is_present("words"),
-            show_max_line_length: matches.is_present("L"),
+            show_max_line_length: matches.is_present("max-line-length"),
         };
 
         if settings.show_bytes
@@ -79,7 +79,8 @@ struct Result {
 static NAME: &'static str = "wc";
 static VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
-pub fn uumain(args: Vec<String>) -> i32 {
+//pub fn uumain(args: Vec<String>) -> i32 {
+pub fn uumain() -> i32 {
 
     let matches : ArgMatches = App::new(NAME)
                         .version(VERSION)
