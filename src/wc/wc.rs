@@ -1,6 +1,14 @@
 #![crate_name = "uu_wc"]
 
 /*
+ * This is a re-write of https://github.com/uutils/coreutils/tree/master/src/wc
+ *  using https://github.com/kbknapp/clap-rs as an example of common usage. 
+ * Most of the structure of the program is the same for the sake of 
+ *  simplicity and readability.
+ */
+
+//ORIGINAL HEADER:
+/*
  * This file is part of the uutils coreutils package.
  *
  * (c) Boden Garman <bpgarman@gmail.com>
@@ -9,19 +17,19 @@
  * file that was distributed with this source code.
  */
 
-extern crate getopts;
 extern crate libc;
+extern crate clap;
 
 #[macro_use]
 extern crate uucore;
 
-use getopts::{Matches, Options};
 use std::ascii::AsciiExt;
 use std::fs::File;
 use std::io::{stdin, BufRead, BufReader, Read, Write};
 use std::path::Path;
 use std::result::Result as StdResult;
 use std::str::from_utf8;
+use clap::{App, Arg, ArgMatches};
 
 struct Settings {
     show_bytes: bool,
@@ -32,13 +40,13 @@ struct Settings {
 }
 
 impl Settings {
-    fn new(matches: &Matches) -> Settings {
+    fn new(matches: &ArgMatches) -> Settings {
         let settings = Settings {
-            show_bytes: matches.opt_present("bytes"),
-            show_chars: matches.opt_present("chars"),
-            show_lines: matches.opt_present("lines"),
-            show_words: matches.opt_present("words"),
-            show_max_line_length: matches.opt_present("L"),
+            show_bytes: matches.is_present("bytes"),
+            show_chars: matches.is_present("chars"),
+            show_lines: matches.is_present("lines"),
+            show_words: matches.is_present("words"),
+            show_max_line_length: matches.is_present("L"),
         };
 
         if settings.show_bytes
@@ -71,46 +79,40 @@ struct Result {
 static NAME: &'static str = "wc";
 static VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
-pub fn uumain(args: Vec<String>) -> i32 {
-    let mut opts = Options::new();
+pub fn uumain() -> i32 {
 
-    opts.optflag("c", "bytes", "print the byte counts");
-    opts.optflag("m", "chars", "print the character counts");
-    opts.optflag("l", "lines", "print the newline counts");
-    opts.optflag("L", "max-line-length", "print the length of the longest line");
-    opts.optflag("w", "words", "print the word counts");
-    opts.optflag("h", "help", "display this help and exit");
-    opts.optflag("V", "version", "output version information and exit");
-
-    let mut matches = match opts.parse(&args[1..]) {
-        Ok(m) => m,
-        Err(f) => crash!(1, "Invalid options\n{}", f)
+    let matches : ArgMatches = App::new(NAME)
+                        .version(VERSION)
+                        .about("wc, courtesy of uutils, rewritten to demonstrate clap-rs usage")
+                        .arg(Arg::with_name("bytes")
+                            .short("c")
+                            .help("print the byte counts"))
+                        .arg(Arg::with_name("chars")
+                            .short("m")
+                            .help("print the character counts"))
+                        .arg(Arg::with_name("lines")
+                            .short("l")
+                            .help("print the newline counts"))
+                        .arg(Arg::with_name("max-line-length")
+                            .short("L")
+                            .help("print the length of the longest line"))
+                        .arg(Arg::with_name("words")
+                            .short("w")
+                            .help("print the word counts"))
+                         .arg(Arg::with_name("files")
+                             .multiple(true)
+                             .takes_value(true))
+                        .get_matches();
+    //let mut files: Vec<&str> = matches.values_of("files").unwrap_or(vec!["-".as_ref()]).collect();
+    let files = matches.values_of("files");
+    let files = match files.is_some() {
+        true  => files.unwrap().collect(),
+        false => vec!["-".as_ref()],
     };
 
-    if matches.opt_present("help") {
-        println!("{} {}", NAME, VERSION);
-        println!("");
-        println!("Usage:");
-        println!("  {0} [OPTION]... [FILE]...", NAME);
-        println!("");
-        println!("{}", opts.usage("Print newline, word and byte counts for each FILE"));
-        println!("With no FILE, or when FILE is -, read standard input.");
-        return 0;
-    }
-
-    if matches.opt_present("version") {
-        println!("{} {}", NAME, VERSION);
-        return 0;
-    }
-
-    if matches.free.is_empty() {
-        matches.free.push("-".to_owned());
-    }
-
     let settings = Settings::new(&matches);
-
-    match wc(matches.free, &settings) {
-        Ok(()) => ( /* pass */ ),
+    match wc(files, &settings){
+        Ok(()) => ( ),
         Err(e) => return e
     }
 
@@ -129,7 +131,7 @@ fn is_word_seperator(byte: u8) -> bool {
     byte == SPACE || byte == TAB || byte == CR || byte == SYN || byte == FF
 }
 
-fn wc(files: Vec<String>, settings: &Settings) -> StdResult<(), i32> {
+fn wc(files: Vec<&str>, settings: &Settings) -> StdResult<(), i32> {
     let mut total_line_count: usize = 0;
     let mut total_word_count: usize = 0;
     let mut total_char_count: usize = 0;
@@ -190,7 +192,7 @@ fn wc(files: Vec<String>, settings: &Settings) -> StdResult<(), i32> {
         }
 
         results.push(Result {
-            title: path.clone(),
+            title: path.to_string(),
             bytes: byte_count,
             chars: char_count,
             lines: line_count,

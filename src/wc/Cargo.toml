@@ -11,6 +11,7 @@ path = "wc.rs"
 getopts = "*"
 libc = "*"
 uucore = { path="../uucore" }
+clap = "2"
 
 [[bin]]
 name = "wc"
